@@ -1,1 +1,0 @@
-# SymmetricKeyTransport_SecureChat
