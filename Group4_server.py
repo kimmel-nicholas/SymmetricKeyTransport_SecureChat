@@ -1,17 +1,9 @@
-# Server program
-# Listens at port 7777
-# Receives the client's message and replies to it and closes the connection
-# Continues listening
-# Use Python 3 to run
-
 import socket
 import rsa
+import time
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad, unpad
 
-
-global public_Key, private_Key
-
-#create rsa public and private keys
-public_Key, private_Key = rsa.newkeys(512)
 
 # create a socket object that will listen
 serverSocket = socket.socket(
@@ -28,45 +20,58 @@ serverSocket.bind((host, port))
 serverSocket.listen()
 
 while True:
-    print("Waiting for connection.....")
-    # serverSocket accepts if there is a connection request
-    # (note that serverSocket is listening).
-    # Communictaion will be via the clientSocket
+    print("Waiting for connection...")
     clientSocket, addr_port = serverSocket.accept()
 
     # Print the address and port of the client
     # addr_port is a tuple that contains both the address and the port number
     print("Got a connection from " + str(addr_port))
 
+    # Generate and send RSA Key pair
+    server_pub, server_priv = rsa.newkeys(512)
 
-    #Send public key n
-    print(public_Key)
-    n = public_Key.n
-    print("sending n..")
+    # Get and send n
+    n = server_pub.n
     n = str(n)
     n = n.encode()
+    print("sending n ...")
     clientSocket.send(n)
+    time.sleep(1)
 
-    ok = clientSocket.recv(1024)
-
-    #send Public key e
-    e = public_Key.e
-    print("sending e..")
+    #Get and send e
+    e = server_pub.e
     e = str(e)
     e = e.encode()
+    print("sending e ...")
     clientSocket.send(e)
 
-    #get length of message - to handle long messages
-    receivedBytes = clientSocket.recv(1024)
-    messageLength = int(rsa.decrypt(receivedBytes, private_Key).decode())
+    #Recieve
+    encrypted_AES_Key = clientSocket.recv(1024)
+    AES_key = rsa.decrypt(encrypted_AES_Key, server_priv)
 
-    amountReceived = 0
-    print("Decrypted message from client: ")
-    while amountReceived < messageLength:
-        receivedBytes = clientSocket.recv(1024)
-        mes = len(receivedBytes)
-        amountReceived += 52*8
-        print(rsa.decrypt(receivedBytes, private_Key).decode())
+    print(AES_key)
 
-    #Final message to client
-    clientSocket.send("MESSAGE RECEIVED. Goodbye".encode())
+    cipher = AES.new(AES_key, AES.MODE_ECB)
+
+    print("Chat opening, waiting for message...\n")
+    incoming_mes = ""
+    message_to_send = ""
+    while True:
+        incoming_bytes = clientSocket.recv(1024)
+        incoming_mes = unpad(cipher.decrypt(incoming_bytes), AES.block_size)
+        incoming_mes = incoming_mes.decode()
+        print("Message from client: ", incoming_mes)
+        if incoming_mes == "bye":
+            print("Chat closing")
+            break
+
+        message_to_send = input("Enter a message or \'bye\' to close chat: ")
+        message_bytes = message_to_send.encode()
+        message_bytes = cipher.encrypt(pad(message_bytes, AES.block_size))
+        clientSocket.send(message_bytes)
+        print("Message sent", end = "")
+        if message_to_send == "bye":
+            print("\nChat closing")
+            break
+        print(", waiting for reply...\n")
+
