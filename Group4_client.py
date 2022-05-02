@@ -1,6 +1,12 @@
+#Client side
+#
+#The server runs continuously waiting for a connection. When a client connects, an RSA key pair
+#is created by the server. The server sends the public RSA key to the client. The client
+#creates an AES key and encrypts it using RSA and sends it to the server. The server
+#decrypts the AES key using the RSA private key. From there, the server and client have
+#private communication through a chat where messages are encrypted using the shared AES key.
+#
 import socket
-
-#import Cryptodome
 import rsa
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
@@ -18,6 +24,8 @@ port = 7777
 # connect to hostname on the port. Note that (host,port) is a tuple.
 connectionSocket.connect((host, port))
 print("Connected to server")
+
+print("Server public key: ")
 # Receive  the message from the server (receive no more than 1024 bytes)
 n = connectionSocket.recv(1024)
 n = n.decode()
@@ -36,14 +44,19 @@ key = get_random_bytes(16)
 
 encrypted_key = rsa.encrypt(key, public_Key)
 
+# Sends AES key encrypted with RSA
 connectionSocket.send(encrypted_key)
 
+# create AES cipher
 cipher = AES.new(key, AES.MODE_ECB)
 
-print("Chat opening...")
+# chat between server and client using AES
+# chat continues until either side sends 'bye'
+print("\nChat opening...")
 message_to_send = ""
 incoming_mes = ""
 while True:
+    # encrypt and send message
     message_to_send = input("Enter a message or \'bye\' to close chat: ")
     message_bytes = message_to_send.encode()
     message_bytes = cipher.encrypt(pad(message_bytes, AES.block_size))
@@ -54,12 +67,13 @@ while True:
         break
     print(", waiting for reply...\n")
 
+    # receive message and decrypt
     incoming_bytes = connectionSocket.recv(1024)
     incoming_mes = unpad(cipher.decrypt(incoming_bytes), AES.block_size)
     incoming_mes = incoming_mes.decode()
     print("Message from server: ", incoming_mes)
     if incoming_mes == "bye":
-        print("Chat closing")
+        print("Chat closing\n")
         break
 
 
