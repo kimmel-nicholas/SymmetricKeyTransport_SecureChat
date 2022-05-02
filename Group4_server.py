@@ -2,8 +2,6 @@ import socket
 import rsa
 import time
 
-#create rsa public and private keys
-public_Key, private_Key = rsa.newkeys(512)
 
 # create a socket object that will listen
 serverSocket = socket.socket(
@@ -46,6 +44,6 @@ clientSocket.send(e)
 #Recieve
 encrypted_AES_Key = clientSocket.recv(1024)
 
-decrypted_AES_key = rsa.decrypt(encrypted_AES_Key, server_priv)
+AES_key = rsa.decrypt(encrypted_AES_Key, server_priv)
 
-print(decrypted_AES_key)
+print(AES_key)
